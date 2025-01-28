@@ -1,0 +1,86 @@
+{
+    "models": [
+        {
+            "classname": "Customer",
+            "code": "class Customer:\n    __tablename__ = 'customer'\n    id = Column(Integer, primary_key=True, autoincrement=True)\n    name = Column(String)\n    credit_limit = Column(Decimal)\n    balance = Column(Decimal)",
+            "description": "Table for storing customer data, including credit limits and balance.",
+            "name": "customer"
+        },
+        {
+            "classname": "Order",
+            "code": "class Order:\n    __tablename__ = 'order'\n    id = Column(Integer, primary_key=True, autoincrement=True)\n    customer_id = Column(Integer, ForeignKey('customer.id'))\n    amount_total = Column(Decimal)\n    date_shipped = Column(DateTime)\n    notes = Column(String)\n    # More fields as necessary",
+            "description": "Stores orders with links to customers and contains calculated total amounts and notes.",
+            "name": "order"
+        },
+        {
+            "classname": "Item",
+            "code": "class Item:\n    __tablename__ = 'item'\n    id = Column(Integer, primary_key=True, autoincrement=True)\n    order_id = Column(Integer, ForeignKey('order.id'))\n    product_id = Column(Integer, ForeignKey('product.id'))\n    quantity = Column(Integer)\n    unit_price = Column(Decimal)\n    amount = Column(Decimal)",
+            "description": "Links items to orders and products, stores quantity, unit price, and amount.",
+            "name": "item"
+        },
+        {
+            "classname": "Product",
+            "code": "class Product:\n    __tablename__ = 'product'\n    id = Column(Integer, primary_key=True, autoincrement=True)\n    name = Column(String)\n    unit_price = Column(Decimal)",
+            "description": "Table that lists products and their unit prices.",
+            "name": "product"
+        }
+    ],
+    "rules": [
+        {
+            "name": "Customer Balance Constraint",
+            "description": "Ensure that customer's balance is within the credit limit.",
+            "use_case": "Check Credit",
+            "entity": "Customer",
+            "code": "Rule.constraint(validate=Customer, as_condition=lambda row: row.balance <= row.credit_limit, error_msg='Customer balance ({row.balance}) exceeds credit limit ({row.credit_limit})')"
+        },
+        {
+            "name": "Customer Balance Summation",
+            "description": "Customer's balance is the sum of the order totals where the shipment date is null.",
+            "use_case": "Check Credit",
+            "entity": "Customer",
+            "code": "Rule.sum(derive=Customer.balance, as_sum_of=Order.amount_total, where=lambda row: row.date_shipped is None)"
+        },
+        {
+            "name": "Order Amount Total Summation",
+            "description": "Order's total amount is the sum of item amounts.",
+            "use_case": "Check Credit",
+            "entity": "Order",
+            "code": "Rule.sum(derive=Order.amount_total, as_sum_of=Item.amount)"
+        },
+        {
+            "name": "Item Amount Calculation",
+            "description": "Item amount is calculated as quantity multiplied by unit price.",
+            "use_case": "Check Credit",
+            "entity": "Item",
+            "code": "Rule.formula(derive=Item.amount, as_expression=lambda row: row.quantity * row.unit_price)"
+        },
+        {
+            "name": "Item Unit Price Copy",
+            "description": "Copy the unit price from the product to the item.",
+            "use_case": "Check Credit",
+            "entity": "Item",
+            "code": "Rule.copy(derive=Item.unit_price, from_parent=Product.unit_price)"
+        }
+    ],
+    "test_data": "customers = [Customer(id=1, name='Alice', credit_limit=5000, balance=0),\nCustomer(id=2, name='Bob', credit_limit=3000, balance=0),\nCustomer(id=3, name='Carol', credit_limit=7000, balance=0),\nCustomer(id=4, name='Dave', credit_limit=10000, balance=0)]\n\nproducts = [Product(id=1, name='Gadget', unit_price=99.99),\nProduct(id=2, name='Widget', unit_price=49.99),\nProduct(id=3, name='Thingamabob', unit_price=19.99),\nProduct(id=4, name='Doodad', unit_price=29.99)]\n\norders = [Order(id=1, customer_id=1, amount_total=199.98, date_shipped=None, notes='Urgent'),\nOrder(id=2, customer_id=1, amount_total=89.97, date_shipped=None, notes=''),\nOrder(id=3, customer_id=2, amount_total=0, date_shipped=None, notes=''),\nOrder(id=4, customer_id=3, amount_total=0, date_shipped=datetime(2023, 10, 5), notes='Follow-up essential')]\n\nitems = [Item(id=1, order_id=1, product_id=1, quantity=2, unit_price=99.99, amount=199.98),\nItem(id=2, order_id=2, product_id=2, quantity=3, unit_price=49.99, amount=149.97),\nItem(id=3, order_id=2, product_id=2, quantity=1, unit_price=49.99, amount=49.99),\nItem(id=4, order_id=3, product_id=3, quantity=0, unit_price=19.99, amount=0)]",
+    "test_data_rows": [
+        {
+            "test_data_row_variable": "customer1",
+            "code": "customer1 = Customer(id=1, name='Alice', credit_limit=5000, balance=299.95)"
+        },
+        {
+            "test_data_row_variable": "product1",
+            "code": "product1 = Product(id=1, name='Gadget', unit_price=99.99)"
+        },
+        {
+            "test_data_row_variable": "order1",
+            "code": "order1 = Order(id=1, customer_id=1, amount_total=299.95, date_shipped=None, notes='')"
+        },
+        {
+            "test_data_row_variable": "item1",
+            "code": "item1 = Item(id=1, order_id=1, product_id=1, quantity=1, unit_price=99.99, amount=99.99)"
+        }
+    ],
+    "test_data_sqlite": "INSERT INTO customer (id, name, credit_limit, balance) VALUES (1, 'Alice', 5000, 299.95)\nINSERT INTO product (id, name, unit_price) VALUES (1, 'Gadget', 99.99)\nINSERT INTO \"order\" (id, customer_id, amount_total, notes) VALUES (1, 1, 299.95, '')\nINSERT INTO item (id, order_id, product_id, quantity, unit_price, amount) VALUES (1, 1, 1, 1, 99.99, 99.99)",
+    "name": "CustomerOrderSystem"
+}
